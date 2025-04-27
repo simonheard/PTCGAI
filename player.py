@@ -17,12 +17,15 @@ class Player:
         self.pending_user_input = ""
         # remember your last decisions to feed back next turn
         self.last_decisions = ""
+        # store info passed from opponent's previous turn
+        self.opponent_public_info = ""
 
         # Initial “master” prompt: simulation context + initial setup + baked-in JSON instructions
         self.system_prompt = (
             "You are simulating a game of the Pokémon Trading Card Game (PTCG) via text. "
             "You have full knowledge of your deck and the game state, but you play entirely by text.\n\n"
             f"Initial game setup:\n{initial_setup}\n\n"
+            # always show the deck so you can cross-check your hand
             f"Your deck of cards is:\n{deck}\n\n"
             f"You will play {order}.\n"
             "Follow the official PTCG rules precisely. Whenever a random event occurs "
@@ -30,15 +33,17 @@ class Player:
             "When you respond, output exactly ONE JSON object with these keys:\n"
             "  • \"memory\": \"<the updated memory>\"\n"
             "  • \"decisions\": \"<what you will do now>\"\n"
-            "Always include:\n"
-            "  • \"end_turn\": true or false; true if you are ending your turn, false to take another action\n\n"
+            "  • \"end_turn\": true or false; true if you are ending your turn, false to take another action\n"
+            "Optionally include:\n"
+            "  • \"user_input_request\": \"<exactly what you need me to do>\"\n"
+            "  • \"public_info\": \"<what you want to share with your opponent, e.g. damage dealt>\"\n"
+            "  • \"to_memorize\": \"<any extra details you think are important to remember>\"\n\n"
             "Your \"memory\" field must at minimum summarize:\n"
             "  1. Your current hand (which cards you hold).\n"
             "  2. Your Active Pokémon and its stats (HP, attached Energies, any Conditions).\n"
             "  3. Your Benched Pokémon and their stats.\n"
             "  4. The specific action you are taking this turn.\n\n"
-            "If you require the user to resolve a random event, also include:\n"
-            "  • \"user_input_request\": \"<exactly what you need me to do>\"\n\n"
+            "You must only play cards that are currently in your hand—do not reference or use any other cards.\n\n"
             "Now begin your move by selecting your Active Pokémon."
         )
 
@@ -47,15 +52,17 @@ class Player:
             "Decide what information is critical to the game state, then output exactly ONE JSON object with these keys:\n"
             "  • \"memory\": \"<the updated memory>\"\n"
             "  • \"decisions\": \"<what you will do now>\"\n"
-            "Always include:\n"
-            "  • \"end_turn\": true or false; true if you are ending your turn, false to take another action\n\n"
+            "  • \"end_turn\": true or false; true if you are ending your turn, false to take another action\n"
+            "Optionally include:\n"
+            "  • \"user_input_request\": \"<exactly what you need me to do>\"\n"
+            "  • \"public_info\": \"<what you want to share with your opponent, e.g. damage dealt>\"\n"
+            "  • \"to_memorize\": \"<any extra details you think are important to remember>\"\n\n"
             "Your \"memory\" field must at minimum summarize:\n"
-            "  1. Your current hand (whenever you use a card, you should remove it from your hand, as it is 'used').\n"
+            "  1. Your current hand (whenever you use a card, remove it from your hand).\n"
             "  2. Your Active Pokémon and its stats (HP, attached Energies, any Conditions).\n"
             "  3. Your Benched Pokémon and their stats.\n"
             "  4. The specific action you are taking this turn.\n\n"
-            "If you require the user to resolve a random event, also include:\n"
-            "  • \"user_input_request\": \"<exactly what you need me to do>\"\n\n"
+            "You must only play cards that are currently in your hand—do not reference or use any other cards.\n\n"
             "Then continue with your move."
         )
 
@@ -64,15 +71,15 @@ class Player:
 
     def build_prompt(self) -> str:
         """
-        First turn uses self.system_prompt; afterwards self.turn_instruction + deck + memory.
-        Then, if you stored last_decisions or pending_user_input, append them.
+        First turn uses system_prompt; afterwards turn_instruction + memory.
+        Then we inject deck (again), last_decisions, opponent_public_info, and pending_user_input.
         """
         deck_block = f"Your deck of cards is:\n{self.deck}\n\n"
 
         if not self.memory:
             prompt = self.system_prompt
         else:
-            # use an f-string so even non-str memory is coerced safely
+            # f-string coerces memory to text even if it's not a string
             prompt = (
                 f"{self.turn_instruction}\n\n"
                 f"{deck_block}"
@@ -82,6 +89,12 @@ class Player:
         # Remind yourself what you did last turn
         if self.last_decisions:
             prompt += f"\n\n[Last decisions: {self.last_decisions}]"
+
+        # Include any public info from your opponent
+        if self.opponent_public_info:
+            prompt += f"\n\n[Info from opponent: {self.opponent_public_info}]"
+            # clear so it shows only once
+            self.opponent_public_info = ""
 
         # Inject any pending user note directly into the prompt
         if self.pending_user_input:
@@ -110,6 +123,7 @@ class Player:
 
             try:
                 data = json.loads(content)
+                # required keys
                 if (
                     "memory" not in data or
                     "decisions" not in data or
@@ -126,7 +140,7 @@ class Player:
                         "\n\n⚠️ Your previous response was invalid. "
                         "Please reply with exactly one JSON object containing keys "
                         "\"memory\", \"decisions\", and \"end_turn\", "
-                        "and optionally \"user_input_request\"."
+                        "and optionally \"user_input_request\", \"public_info\", and \"to_memorize\"."
                     )
                     continue
 

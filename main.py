@@ -30,9 +30,10 @@ def main():
 
     while True:
         current = players[turn % 2]
+        opponent = players[(turn + 1) % 2]
         print(f"\n--- {current.name}'s turn ({current.order}) ---")
 
-        # 1) Build & log the prompt (this now includes deck, memory, last decisions, and any pending_user_input)
+        # 1) Build & log the prompt (includes deck, memory, last decisions, any pending_user_input, and opponent public_info)
         prompt = current.build_prompt()
         logger.log(current.name, "PROMPT", prompt)
 
@@ -47,16 +48,23 @@ def main():
         logger.log(current.name, "RESPONSE", json.dumps(data, indent=2))
 
         # 4) Coerce memory into a plain string, then replace it wholesale
-        raw_mem = data["memory"]
+        raw_mem = data.get("memory", "")
         if not isinstance(raw_mem, str):
             raw_mem = json.dumps(raw_mem)
         current.memory = raw_mem
 
-        # 4.1) Remember what you just decided, explicitly
-        current.last_decisions = data["decisions"]
+        # 4.1) Append any optional extra notes the AI wants to memorize
+        extra = data.get("to_memorize")
+        if extra:
+            if not isinstance(extra, str):
+                extra = json.dumps(extra)
+            current.memory += "\n" + extra
+
+        # 4.2) Remember what you just decided, explicitly
+        current.last_decisions = data.get("decisions", "")
 
         # 5) Show decisions
-        print(f"Decisions:\n{data['decisions']}")
+        print(f"Decisions:\n{current.last_decisions}")
 
         # 6) Handle any random‐event requests
         if "user_input_request" in data:
@@ -76,11 +84,15 @@ def main():
             print("Game ended by user.")
             break
         elif cont:
-            # stash it to be appended to the very next build_prompt()
             logger.log(current.name, "USER_INPUT", f"[Pending note] {cont}")
             current.pending_user_input = cont
 
-        # 8) Advance turn only if AI signaled end_turn=True
+        # 8) Pass any public_info to opponent
+        public = data.get("public_info")
+        if public:
+            opponent.opponent_public_info = public
+
+        # 9) Advance turn only if AI signaled end_turn=True
         if data.get("end_turn"):
             turn += 1
 
