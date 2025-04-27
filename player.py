@@ -10,19 +10,21 @@ class Player:
         self.order = order                  # "first" or "second"
         self.initial_setup = initial_setup
 
-        # how many times to retry JSON parsing before giving up
+        # retry limit
         self.max_retries = 3
 
-        # stash drawn card until next build_prompt()
+        # dynamic state for prompt-building
         self.pending_draw = ""
-        # stash any free-form CLI note here until next build_prompt()
         self.pending_user_input = ""
-        # remember your last decisions to feed back next turn
+        self.pending_new_turn = False
         self.last_decisions = ""
-        # store public_info passed from opponent's previous turn
         self.opponent_public_info = ""
+        self.board_state = {}
 
-        # Initial “master” prompt
+        # private memory
+        self.memory = ""
+
+        # master prompt
         self.system_prompt = (
             "You are simulating a game of the Pokémon Trading Card Game (PTCG) via text. "
             f"You are acting as {self.name}, not as a judge—you play like a real player.\n\n"
@@ -47,7 +49,7 @@ class Player:
             "Now begin your move by selecting your Active Pokémon."
         )
 
-        # Instruction for all subsequent turns
+        # follow-up prompt
         self.turn_instruction = (
             "Continue simulating as " + self.name + ", not a judge.\n\n"
             "Decide what information is critical to the game state, then output exactly ONE JSON object with these keys:\n"
@@ -67,40 +69,45 @@ class Player:
             "Then continue with your move."
         )
 
-        # Accumulated “memory” text
-        self.memory = ""
-
     def build_prompt(self) -> str:
-        """
-        First turn uses self.system_prompt; afterwards self.turn_instruction + memory.
-        Then we inject pending_draw, last_decisions, opponent_public_info, and pending_user_input.
-        """
-        deck_block = f"# Decklist (for reference):\n{self.deck}\n\n"
+        # 1) new-turn notice
+        header = ""
+        if self.pending_new_turn:
+            header = "[New Turn]\n\n"
+            self.pending_new_turn = False
 
+        # 2) choose base
+        deck_block = f"# Decklist (for reference):\n{self.deck}\n\n"
         if not self.memory:
-            prompt = self.system_prompt
+            base = self.system_prompt
         else:
-            prompt = (
+            base = (
                 f"{self.turn_instruction}\n\n"
                 f"{deck_block}"
                 f"Previously remembered:\n{self.memory}"
             )
 
-        # Inject the drawn card
+        prompt = header + base
+
+        # 3) shared board state
+        if self.board_state:
+            prompt += f"\n\n[Board state: {json.dumps(self.board_state)}]"
+
+        # 4) drawn card
         if self.pending_draw:
             prompt += f"\n\n[Drawn card: {self.pending_draw}]"
             self.pending_draw = ""
 
-        # Remind yourself what you did last turn
+        # 5) last decisions
         if self.last_decisions:
             prompt += f"\n\n[Last decisions: {self.last_decisions}]"
 
-        # Include any public info from your opponent
+        # 6) any opponent info
         if self.opponent_public_info:
             prompt += f"\n\n[Public info: {self.opponent_public_info}]"
             self.opponent_public_info = ""
 
-        # Inject any pending user note directly into the prompt
+        # 7) free-form note
         if self.pending_user_input:
             prompt += f"\n\n[User note: {self.pending_user_input}]"
             self.pending_user_input = ""
@@ -108,11 +115,6 @@ class Player:
         return prompt
 
     def take_turn(self, prompt: str) -> dict:
-        """
-        Sends the given prompt, strips markdown fences from the AI response,
-        parses the JSON, and returns it. Retries up to max_retries if parsing fails.
-        On final failure, raises ValueError with parse error + raw response.
-        """
         def strip_fences(s: str) -> str:
             if s.startswith("```"):
                 lines = s.splitlines()
@@ -123,9 +125,9 @@ class Player:
                 return "\n".join(lines)
             return s
 
-        current_prompt = prompt
         last_error = None
         last_content = None
+        current_prompt = prompt
 
         for attempt in range(1, self.max_retries + 1):
             resp = openai.chat.completions.create(
@@ -133,14 +135,12 @@ class Player:
                 messages=[{"role": "user", "content": current_prompt}],
                 temperature=1
             )
-
             raw = resp.choices[0].message.content
-            content = strip_fences(raw.strip())
+            clean = strip_fences(raw.strip())
             last_content = raw
 
             try:
-                data = json.loads(content)
-                # validate required keys
+                data = json.loads(clean)
                 if not all(k in data for k in ("memory","decisions","end_turn","public_info")):
                     raise KeyError("Missing one of (memory, decisions, end_turn, public_info)")
                 return data
