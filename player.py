@@ -5,12 +5,11 @@ import json
 
 class Player:
     def __init__(self, name: str, deck: str, order: str, initial_setup: str):
-        self.name = name                    # "Player1" or "Player2"
+        self.name = name
         self.deck = deck
-        self.order = order                  # "first" or "second"
+        self.order = order
         self.initial_setup = initial_setup
 
-        # retry limit
         self.max_retries = 3
 
         # dynamic state for prompt-building
@@ -24,7 +23,6 @@ class Player:
         # private memory
         self.memory = ""
 
-        # master prompt
         self.system_prompt = (
             "You are simulating a game of the Pokémon Trading Card Game (PTCG) via text. "
             f"You are acting as {self.name}, not as a judge—you play like a real player.\n\n"
@@ -49,7 +47,6 @@ class Player:
             "Now begin your move by selecting your Active Pokémon."
         )
 
-        # follow-up prompt
         self.turn_instruction = (
             "Continue simulating as " + self.name + ", not a judge.\n\n"
             "Decide what information is critical to the game state, then output exactly ONE JSON object with these keys:\n"
@@ -70,13 +67,13 @@ class Player:
         )
 
     def build_prompt(self) -> str:
-        # 1) new-turn notice
+        # 1) New-turn header
         header = ""
         if self.pending_new_turn:
             header = "[New Turn]\n\n"
             self.pending_new_turn = False
 
-        # 2) choose base
+        # 2) Base prompt
         deck_block = f"# Decklist (for reference):\n{self.deck}\n\n"
         if not self.memory:
             base = self.system_prompt
@@ -86,28 +83,27 @@ class Player:
                 f"{deck_block}"
                 f"Previously remembered:\n{self.memory}"
             )
-
         prompt = header + base
 
-        # 3) shared board state
+        # 3) Shared board state
         if self.board_state:
             prompt += f"\n\n[Board state: {json.dumps(self.board_state)}]"
 
-        # 4) drawn card
+        # 4) Drawn card
         if self.pending_draw:
             prompt += f"\n\n[Drawn card: {self.pending_draw}]"
             self.pending_draw = ""
 
-        # 5) last decisions
+        # 5) Last decisions
         if self.last_decisions:
             prompt += f"\n\n[Last decisions: {self.last_decisions}]"
 
-        # 6) any opponent info
+        # 6) Opponent’s public info
         if self.opponent_public_info:
             prompt += f"\n\n[Public info: {self.opponent_public_info}]"
             self.opponent_public_info = ""
 
-        # 7) free-form note
+        # 7) All pending user notes + corrections
         if self.pending_user_input:
             prompt += f"\n\n[User note: {self.pending_user_input}]"
             self.pending_user_input = ""

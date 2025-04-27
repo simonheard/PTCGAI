@@ -81,10 +81,9 @@ def main():
 
         # 8) Record decisions
         current.last_decisions = data.get("decisions", "")
-
         print(f"Decisions:\n{current.last_decisions}")
 
-        # 9) Handle any AI‐requested user input
+        # 9) Handle AI‐requested user input
         if "user_input_request" in data:
             req = data["user_input_request"]
             print(f"\n>> {current.name} requests input: {req}")
@@ -95,16 +94,20 @@ def main():
             logger.log(current.name, "USER_INPUT", f"{req} -> {user_in}")
             current.memory += f"\n[User input: {user_in}]"
 
-        # 10) Free-form CLI note for next prompt
+        # 10) Free-form CLI note
         cont = input("\nPress Enter to continue, or type a note to include in AI prompt> ").strip()
         if cont.lower() == "end":
             print("Game ended by user.")
             break
         elif cont:
             logger.log(current.name, "USER_INPUT", f"[Pending note] {cont}")
-            current.pending_user_input = cont
+            # **append** rather than overwrite
+            if current.pending_user_input:
+                current.pending_user_input += "\n" + cont
+            else:
+                current.pending_user_input = cont
 
-        # 11) Update shared board_state for both players
+        # 11) Update shared board_state
         board = data.get("public_info")
         if board:
             for p in players:
@@ -114,14 +117,18 @@ def main():
         if data.get("end_turn"):
             confirm = input("\nAI wants to end its turn. Confirm end turn? (yes/no)> ").strip().lower()
             if confirm == "yes":
-                # next player's new turn
                 turn += 1
+                # mark next player’s new turn
                 players[turn % 2].pending_new_turn = True
             else:
                 correction = "Please continue your turn; I think you ended prematurely."
                 logger.log(current.name, "USER_INPUT", f"[Correction] {correction}")
-                current.pending_user_input = correction
-        # if end_turn is false, we do not advance turn and will re-prompt the AI
+                # **append** correction to existing pending_user_input
+                if current.pending_user_input:
+                    current.pending_user_input += "\n" + correction
+                else:
+                    current.pending_user_input = correction
+        # if end_turn is false, stay on same player
 
 if __name__ == "__main__":
     main()
