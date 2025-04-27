@@ -13,6 +13,8 @@ class Player:
         # how many times to retry JSON parsing before giving up
         self.max_retries = 3
 
+        # stash drawn card until next build_prompt()
+        self.pending_draw = ""
         # stash any free-form CLI note here until next build_prompt()
         self.pending_user_input = ""
         # remember your last decisions to feed back next turn
@@ -20,7 +22,7 @@ class Player:
         # store public_info passed from opponent's previous turn
         self.opponent_public_info = ""
 
-        # Initial “master” prompt: simulation context + initial setup + baked-in JSON instructions
+        # Initial “master” prompt
         self.system_prompt = (
             "You are simulating a game of the Pokémon Trading Card Game (PTCG) via text. "
             f"You are acting as {self.name}, not as a judge—you play like a real player.\n\n"
@@ -71,19 +73,23 @@ class Player:
     def build_prompt(self) -> str:
         """
         First turn uses self.system_prompt; afterwards self.turn_instruction + memory.
-        Then we inject last_decisions, opponent_public_info, and pending_user_input.
+        Then we inject pending_draw, last_decisions, opponent_public_info, and pending_user_input.
         """
         deck_block = f"# Decklist (for reference):\n{self.deck}\n\n"
 
         if not self.memory:
             prompt = self.system_prompt
         else:
-            # f-string coerces memory to text even if it's not a string
             prompt = (
                 f"{self.turn_instruction}\n\n"
                 f"{deck_block}"
                 f"Previously remembered:\n{self.memory}"
             )
+
+        # Inject the drawn card
+        if self.pending_draw:
+            prompt += f"\n\n[Drawn card: {self.pending_draw}]"
+            self.pending_draw = ""
 
         # Remind yourself what you did last turn
         if self.last_decisions:
@@ -103,38 +109,45 @@ class Player:
 
     def take_turn(self, prompt: str) -> dict:
         """
-        Sends the given prompt (as a user message), parses the JSON
-        response, and returns it. Retries up to self.max_retries times
-        if parsing or key‐validation fails.
+        Sends the given prompt, strips markdown fences from the AI response,
+        parses the JSON, and returns it. Retries up to max_retries if parsing fails.
+        On final failure, raises ValueError with parse error + raw response.
         """
+        def strip_fences(s: str) -> str:
+            if s.startswith("```"):
+                lines = s.splitlines()
+                if lines[0].startswith("```"):
+                    lines = lines[1:]
+                if lines and lines[-1].startswith("```"):
+                    lines = lines[:-1]
+                return "\n".join(lines)
+            return s
+
         current_prompt = prompt
         last_error = None
+        last_content = None
 
         for attempt in range(1, self.max_retries + 1):
             resp = openai.chat.completions.create(
-                model="gpt-3.5-turbo",
+                model="o3-mini",
                 messages=[{"role": "user", "content": current_prompt}],
-                temperature=0.7
+                temperature=1
             )
 
-            content = resp.choices[0].message.content.strip()
+            raw = resp.choices[0].message.content
+            content = strip_fences(raw.strip())
+            last_content = raw
 
             try:
                 data = json.loads(content)
-                # required keys
-                if (
-                    "memory" not in data or
-                    "decisions" not in data or
-                    "end_turn" not in data or
-                    "public_info" not in data
-                ):
-                    raise KeyError("Missing required keys")
+                # validate required keys
+                if not all(k in data for k in ("memory","decisions","end_turn","public_info")):
+                    raise KeyError("Missing one of (memory, decisions, end_turn, public_info)")
                 return data
 
             except (json.JSONDecodeError, KeyError) as e:
                 last_error = e
                 if attempt < self.max_retries:
-                    # append the retry reminder to the same prompt
                     current_prompt += (
                         "\n\n⚠️ Your previous response was invalid. "
                         "Please reply with exactly one JSON object containing keys "
@@ -144,6 +157,6 @@ class Player:
                     continue
 
                 raise ValueError(
-                    f"{self.name} failed to return valid JSON after "
-                    f"{self.max_retries} attempts. Last error: {last_error}"
+                    f"{self.name} failed to return valid JSON after {self.max_retries} attempts. "
+                    f"Last error: {last_error}. Last raw response: {last_content!r}"
                 )

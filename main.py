@@ -31,10 +31,18 @@ def main():
     while True:
         current = players[turn % 2]
         opponent = players[(turn + 1) % 2]
+
+        # --- Draw Phase ---
         print(f"\n--- {current.name}'s turn ({current.order}) ---")
+        draw_input = input("Draw a card (enter card name)> ").strip()
+        if draw_input.lower() == "end":
+            print("Game ended by user.")
+            break
+        logger.log(current.name, "USER_INPUT", f"Drew card: {draw_input}")
+        current.pending_draw = draw_input
 
         # 1) Build & log the prompt (includes deck, memory, last decisions,
-        #    any pending_user_input, and opponent_public_info)
+        #    any pending_draw, pending_user_input, and opponent_public_info)
         prompt = current.build_prompt()
         logger.log(current.name, "PROMPT", prompt)
 
@@ -42,7 +50,9 @@ def main():
         try:
             data = current.take_turn(prompt)
         except Exception as e:
-            print("ERROR during AI turn:", e)
+            error_msg = f"AI turn failed for {current.name}: {e}"
+            print(f"ERROR during AI turn: {e}")
+            logger.log(current.name, "ERROR", error_msg)
             break
 
         # 3) Log the raw JSON
@@ -76,7 +86,6 @@ def main():
                 print("Game ended by user.")
                 break
             logger.log(current.name, "USER_INPUT", f"{req} -> {user_in}")
-            # This *is* memory, because it's AI-requested resolution
             current.memory += f"\n[User input: {user_in}]"
 
         # 7) Free-form CLI note for next AI prompt (not memory)
@@ -93,9 +102,17 @@ def main():
         if public:
             opponent.opponent_public_info = public
 
-        # 9) Advance turn only if AI signaled end_turn=True
+        # 9) End‐Turn Confirmation
         if data.get("end_turn"):
-            turn += 1
+            confirm = input("\nAI wants to end its turn. Confirm end turn? (yes/no)> ").strip().lower()
+            if confirm == "yes":
+                turn += 1
+            else:
+                # user wants AI to adjust
+                correction = "Please continue your turn; I think you ended prematurely."
+                logger.log(current.name, "USER_INPUT", f"[Correction] {correction}")
+                current.pending_user_input = correction
+        # if end_turn was false, we stay on the same player
 
 if __name__ == "__main__":
     main()
