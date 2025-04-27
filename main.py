@@ -33,7 +33,8 @@ def main():
         opponent = players[(turn + 1) % 2]
         print(f"\n--- {current.name}'s turn ({current.order}) ---")
 
-        # 1) Build & log the prompt (includes deck, memory, last decisions, any pending_user_input, and opponent public_info)
+        # 1) Build & log the prompt (includes deck, memory, last decisions,
+        #    any pending_user_input, and opponent_public_info)
         prompt = current.build_prompt()
         logger.log(current.name, "PROMPT", prompt)
 

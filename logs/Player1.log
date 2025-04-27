@@ -37,8 +37,11 @@ Follow the official PTCG rules precisely. Whenever a random event occurs (like d
 When you respond, output exactly ONE JSON object with these keys:
   • "memory": "<the updated memory>"
   • "decisions": "<what you will do now>"
-Always include:
   • "end_turn": true or false; true if you are ending your turn, false to take another action
+Optionally include:
+  • "user_input_request": "<exactly what you need me to do>"
+  • "public_info": "<what you want to share with your opponent, e.g. damage dealt>"
+  • "to_memorize": "<any extra details you think are important to remember>"
 
 Your "memory" field must at minimum summarize:
   1. Your current hand (which cards you hold).
@@ -46,15 +49,14 @@ Your "memory" field must at minimum summarize:
   3. Your Benched Pokémon and their stats.
   4. The specific action you are taking this turn.
 
-If you require the user to resolve a random event, also include:
-  • "user_input_request": "<exactly what you need me to do>"
+You must only play cards that are currently in your hand—do not reference or use any other cards.
 
 Now begin your move by selecting your Active Pokémon.
 
 === Player1 RESPONSE ===
 {
   "memory": {
-    "current_hand": [
+    "hand": [
       "Shinx",
       "Shinx",
       "Blitzle",
@@ -72,30 +74,18 @@ Now begin your move by selecting your Active Pokémon.
     "benched_pokemon": [],
     "action": "Selecting Active Pok\u00e9mon"
   },
-  "decisions": "I will select Shinx as my Active Pok\u00e9mon.",
-  "end_turn": false
+  "decisions": "I will choose Shinx as my Active Pok\u00e9mon.",
+  "end_turn": false,
+  "user_input_request": "Please select a Basic Pok\u00e9mon from your hand to bench.",
+  "public_info": "",
+  "to_memorize": ""
 }
 
-=== Player1 USER_INPUT ===
-[Pending note] continue
-
 === Player1 PROMPT ===
-Decide what information is critical to the game state, then output exactly ONE JSON object with these keys:
-  • "memory": "<the updated memory>"
-  • "decisions": "<what you will do now>"
-Always include:
-  • "end_turn": true or false; true if you are ending your turn, false to take another action
+You are simulating a game of the Pokémon Trading Card Game (PTCG) via text. You have full knowledge of your deck and the game state, but you play entirely by text.
 
-Your "memory" field must at minimum summarize:
-  1. Your current hand (whenever you use a card, you should remove it from your hand, as it is 'used').
-  2. Your Active Pokémon and its stats (HP, attached Energies, any Conditions).
-  3. Your Benched Pokémon and their stats.
-  4. The specific action you are taking this turn.
-
-If you require the user to resolve a random event, also include:
-  • "user_input_request": "<exactly what you need me to do>"
-
-Then continue with your move.
+Initial game setup:
+You have 4 prize cards. You hand is: Shinx, Shinx, Blitzle, Great Ball, Great Ball, Shauna, Basic L Energy.
 
 Your deck of cards is:
 
@@ -124,17 +114,33 @@ Energy - 18
 18 Lightning Energy 155
 
 
-Previously remembered:
-{"current_hand": ["Shinx", "Shinx", "Blitzle", "Great Ball", "Great Ball", "Shauna", "Basic L Energy"], "active_pokemon": {"name": "Shinx", "hp": 60, "attached_energy": [], "conditions": []}, "benched_pokemon": [], "action": "Selecting Active Pok\u00e9mon"}
+You will play first.
+Follow the official PTCG rules precisely. Whenever a random event occurs (like drawing or shuffling), pause and prompt the user for the exact result.
 
-[Last decisions: I will select Shinx as my Active Pokémon.]
+When you respond, output exactly ONE JSON object with these keys:
+  • "memory": "<the updated private memory>"
+  • "decisions": "<what you will do now>"
+  • "end_turn": true or false; true if you are ending your turn, false to take another action
+  • "public_info": "<public game state: both players' active Pokémon & stats, benched Pokémon & stats, prize cards remaining for each player>"
+Optionally include:
+  • "to_memorize": "<any extra details you think are important to remember>"
+  • "user_input_request": "<exactly what you need me to do>"
 
-[User note: continue]
+Your "memory" field must at minimum summarize:
+  1. Your current hand (which cards you hold).
+  2. Your Active Pokémon and its stats (HP, attached Energies, any Conditions).
+  3. Your Benched Pokémon and their stats.
+  4. The specific action you are taking this turn.
+
+You must only play cards that are currently in your hand—do not reference or use any other cards.
+
+Now begin your move by selecting your Active Pokémon.
 
 === Player1 RESPONSE ===
 {
   "memory": {
-    "current_hand": [
+    "hand": [
+      "Shinx",
       "Shinx",
       "Blitzle",
       "Great Ball",
@@ -145,566 +151,25 @@ Previously remembered:
     "active_pokemon": {
       "name": "Shinx",
       "hp": 60,
-      "attached_energy": [],
+      "energy_attached": [],
       "conditions": []
     },
     "benched_pokemon": [],
-    "action": "Using Great Ball to search for a new Basic Pok\u00e9mon"
+    "action": "Selecting Active Pok\u00e9mon"
   },
-  "decisions": "I will use Great Ball to search for a new Basic Pok\u00e9mon.",
-  "end_turn": false
-}
-
-=== Player1 USER_INPUT ===
-[Pending note] You revealed Zeraora, do you want it in your hand?
-
-=== Player1 PROMPT ===
-Decide what information is critical to the game state, then output exactly ONE JSON object with these keys:
-  • "memory": "<the updated memory>"
-  • "decisions": "<what you will do now>"
-Always include:
-  • "end_turn": true or false; true if you are ending your turn, false to take another action
-
-Your "memory" field must at minimum summarize:
-  1. Your current hand (whenever you use a card, you should remove it from your hand, as it is 'used').
-  2. Your Active Pokémon and its stats (HP, attached Energies, any Conditions).
-  3. Your Benched Pokémon and their stats.
-  4. The specific action you are taking this turn.
-
-If you require the user to resolve a random event, also include:
-  • "user_input_request": "<exactly what you need me to do>"
-
-Then continue with your move.
-
-Your deck of cards is:
-
-Pokemon - 22
-4 Blitzle VIV 53
-1 Boltund SSH 76
-3 Luxio FST 92
-2 Luxray FST 93
-1 Morpeko FST 109
-1 Pikachu V VIV 43
-4 Shinx FST 91
-2 Yamper SSH 74
-3 Zebstrika VIV 54
-1 Zeraora FST 102
-Trainer - 20
-1 Boss's Orders RCL 154
-2 Bug Catcher FST 226
-1 Energy Recycler BST 124
-4 Great Ball SSH 164
-4 Hop SSH 165
-2 Potion SSH 177
-3 Shauna FST 240
-1 Sonia RCL 167
-2 Switch SSH 183
-Energy - 18
-18 Lightning Energy 155
-
-
-Previously remembered:
-{"current_hand": ["Shinx", "Blitzle", "Great Ball", "Great Ball", "Shauna", "Basic L Energy"], "active_pokemon": {"name": "Shinx", "hp": 60, "attached_energy": [], "conditions": []}, "benched_pokemon": [], "action": "Using Great Ball to search for a new Basic Pok\u00e9mon"}
-
-[Last decisions: I will use Great Ball to search for a new Basic Pokémon.]
-
-[User note: You revealed Zeraora, do you want it in your hand?]
-
-=== Player1 RESPONSE ===
-{
-  "memory": {
-    "current_hand": [
-      "Shinx",
-      "Blitzle",
-      "Great Ball",
-      "Great Ball",
-      "Shauna",
-      "Basic L Energy",
-      "Zeraora"
-    ],
-    "active_pokemon": {
-      "name": "Shinx",
-      "hp": 60,
-      "attached_energy": [],
-      "conditions": []
-    },
-    "benched_pokemon": [],
-    "action": "Choosing to add Zeraora to hand"
-  },
-  "decisions": "I will add Zeraora to my hand.",
+  "decisions": "I will use Shinx as my Active Pok\u00e9mon.",
   "end_turn": false,
-  "user_input_request": "Please confirm if you want to add Zeraora to your hand."
-}
-
-=== Player1 USER_INPUT ===
-Please confirm if you want to add Zeraora to your hand. -> You may continue
-
-=== Player1 USER_INPUT ===
-[Pending note] you may continue
-
-=== Player1 PROMPT ===
-Decide what information is critical to the game state, then output exactly ONE JSON object with these keys:
-  • "memory": "<the updated memory>"
-  • "decisions": "<what you will do now>"
-Always include:
-  • "end_turn": true or false; true if you are ending your turn, false to take another action
-
-Your "memory" field must at minimum summarize:
-  1. Your current hand (whenever you use a card, you should remove it from your hand, as it is 'used').
-  2. Your Active Pokémon and its stats (HP, attached Energies, any Conditions).
-  3. Your Benched Pokémon and their stats.
-  4. The specific action you are taking this turn.
-
-If you require the user to resolve a random event, also include:
-  • "user_input_request": "<exactly what you need me to do>"
-
-Then continue with your move.
-
-Your deck of cards is:
-
-Pokemon - 22
-4 Blitzle VIV 53
-1 Boltund SSH 76
-3 Luxio FST 92
-2 Luxray FST 93
-1 Morpeko FST 109
-1 Pikachu V VIV 43
-4 Shinx FST 91
-2 Yamper SSH 74
-3 Zebstrika VIV 54
-1 Zeraora FST 102
-Trainer - 20
-1 Boss's Orders RCL 154
-2 Bug Catcher FST 226
-1 Energy Recycler BST 124
-4 Great Ball SSH 164
-4 Hop SSH 165
-2 Potion SSH 177
-3 Shauna FST 240
-1 Sonia RCL 167
-2 Switch SSH 183
-Energy - 18
-18 Lightning Energy 155
-
-
-Previously remembered:
-{"current_hand": ["Shinx", "Blitzle", "Great Ball", "Great Ball", "Shauna", "Basic L Energy", "Zeraora"], "active_pokemon": {"name": "Shinx", "hp": 60, "attached_energy": [], "conditions": []}, "benched_pokemon": [], "action": "Choosing to add Zeraora to hand"}
-[User input: You may continue]
-
-[Last decisions: I will add Zeraora to my hand.]
-
-[User note: you may continue]
-
-=== Player1 RESPONSE ===
-{
-  "memory": {
-    "current_hand": [
-      "Shinx",
-      "Blitzle",
-      "Great Ball",
-      "Great Ball",
-      "Shauna",
-      "Basic L Energy",
-      "Zeraora"
-    ],
-    "active_pokemon": {
+  "public_info": {
+    "player_active_pokemon": {
       "name": "Shinx",
-      "hp": 60,
-      "attached_energy": [],
-      "conditions": []
+      "hp": 60
     },
-    "benched_pokemon": [],
-    "action": "Adding Zeraora to hand"
+    "player_benched_pokemon": [],
+    "opponent_active_pokemon": null,
+    "opponent_benched_pokemon": [],
+    "player_prize_cards": 4,
+    "opponent_prize_cards": 4
   },
-  "decisions": "I will play Shauna to shuffle my hand into my deck and draw 5 new cards.",
-  "end_turn": false
-}
-
-=== Player1 USER_INPUT ===
-[Pending note] Your new hand is: Hop, Yamper, Blitzle, Morpeko, Shinx
-
-=== Player1 PROMPT ===
-Decide what information is critical to the game state, then output exactly ONE JSON object with these keys:
-  • "memory": "<the updated memory>"
-  • "decisions": "<what you will do now>"
-Always include:
-  • "end_turn": true or false; true if you are ending your turn, false to take another action
-
-Your "memory" field must at minimum summarize:
-  1. Your current hand (whenever you use a card, you should remove it from your hand, as it is 'used').
-  2. Your Active Pokémon and its stats (HP, attached Energies, any Conditions).
-  3. Your Benched Pokémon and their stats.
-  4. The specific action you are taking this turn.
-
-If you require the user to resolve a random event, also include:
-  • "user_input_request": "<exactly what you need me to do>"
-
-Then continue with your move.
-
-Your deck of cards is:
-
-Pokemon - 22
-4 Blitzle VIV 53
-1 Boltund SSH 76
-3 Luxio FST 92
-2 Luxray FST 93
-1 Morpeko FST 109
-1 Pikachu V VIV 43
-4 Shinx FST 91
-2 Yamper SSH 74
-3 Zebstrika VIV 54
-1 Zeraora FST 102
-Trainer - 20
-1 Boss's Orders RCL 154
-2 Bug Catcher FST 226
-1 Energy Recycler BST 124
-4 Great Ball SSH 164
-4 Hop SSH 165
-2 Potion SSH 177
-3 Shauna FST 240
-1 Sonia RCL 167
-2 Switch SSH 183
-Energy - 18
-18 Lightning Energy 155
-
-
-Previously remembered:
-{"current_hand": ["Shinx", "Blitzle", "Great Ball", "Great Ball", "Shauna", "Basic L Energy", "Zeraora"], "active_pokemon": {"name": "Shinx", "hp": 60, "attached_energy": [], "conditions": []}, "benched_pokemon": [], "action": "Adding Zeraora to hand"}
-
-[Last decisions: I will play Shauna to shuffle my hand into my deck and draw 5 new cards.]
-
-[User note: Your new hand is: Hop, Yamper, Blitzle, Morpeko, Shinx]
-
-=== Player1 RESPONSE ===
-{
-  "memory": {
-    "current_hand": [
-      "Hop",
-      "Yamper",
-      "Blitzle",
-      "Morpeko",
-      "Shinx"
-    ],
-    "active_pokemon": {
-      "name": "Shinx",
-      "hp": 60,
-      "attached_energy": [],
-      "conditions": []
-    },
-    "benched_pokemon": [],
-    "action": "Playing Hop to draw 3 cards"
-  },
-  "decisions": "Playing Hop to draw 3 cards",
-  "end_turn": false
-}
-
-=== Player1 USER_INPUT ===
-[Pending note] you can't use more than 1 supporter per turn
-
-=== Player1 PROMPT ===
-Decide what information is critical to the game state, then output exactly ONE JSON object with these keys:
-  • "memory": "<the updated memory>"
-  • "decisions": "<what you will do now>"
-Always include:
-  • "end_turn": true or false; true if you are ending your turn, false to take another action
-
-Your "memory" field must at minimum summarize:
-  1. Your current hand (whenever you use a card, you should remove it from your hand, as it is 'used').
-  2. Your Active Pokémon and its stats (HP, attached Energies, any Conditions).
-  3. Your Benched Pokémon and their stats.
-  4. The specific action you are taking this turn.
-
-If you require the user to resolve a random event, also include:
-  • "user_input_request": "<exactly what you need me to do>"
-
-Then continue with your move.
-
-Your deck of cards is:
-
-Pokemon - 22
-4 Blitzle VIV 53
-1 Boltund SSH 76
-3 Luxio FST 92
-2 Luxray FST 93
-1 Morpeko FST 109
-1 Pikachu V VIV 43
-4 Shinx FST 91
-2 Yamper SSH 74
-3 Zebstrika VIV 54
-1 Zeraora FST 102
-Trainer - 20
-1 Boss's Orders RCL 154
-2 Bug Catcher FST 226
-1 Energy Recycler BST 124
-4 Great Ball SSH 164
-4 Hop SSH 165
-2 Potion SSH 177
-3 Shauna FST 240
-1 Sonia RCL 167
-2 Switch SSH 183
-Energy - 18
-18 Lightning Energy 155
-
-
-Previously remembered:
-{"current_hand": ["Hop", "Yamper", "Blitzle", "Morpeko", "Shinx"], "active_pokemon": {"name": "Shinx", "hp": 60, "attached_energy": [], "conditions": []}, "benched_pokemon": [], "action": "Playing Hop to draw 3 cards"}
-
-[Last decisions: Playing Hop to draw 3 cards]
-
-[User note: you can't use more than 1 supporter per turn]
-
-=== Player1 RESPONSE ===
-{
-  "memory": {
-    "current_hand": [
-      "Yamper",
-      "Blitzle",
-      "Morpeko"
-    ],
-    "active_pokemon": {
-      "name": "Shinx",
-      "hp": 60,
-      "attached_energy": [],
-      "conditions": []
-    },
-    "benched_pokemon": [],
-    "action": "Playing Great Ball to search for a Basic Pokemon and put it into my hand"
-  },
-  "decisions": "Playing Great Ball to search for a Basic Pokemon and put it into my hand",
-  "end_turn": false,
-  "user_input_request": "Please choose a Basic Pokemon from your deck to put into your hand."
-}
-
-=== Player1 USER_INPUT ===
-Please choose a Basic Pokemon from your deck to put into your hand. -> You don't have great ball in your hand
-
-=== Player1 USER_INPUT ===
-[Pending note] you don't have great ball in your hand
-
-=== Player1 PROMPT ===
-Decide what information is critical to the game state, then output exactly ONE JSON object with these keys:
-  • "memory": "<the updated memory>"
-  • "decisions": "<what you will do now>"
-Always include:
-  • "end_turn": true or false; true if you are ending your turn, false to take another action
-
-Your "memory" field must at minimum summarize:
-  1. Your current hand (whenever you use a card, you should remove it from your hand, as it is 'used').
-  2. Your Active Pokémon and its stats (HP, attached Energies, any Conditions).
-  3. Your Benched Pokémon and their stats.
-  4. The specific action you are taking this turn.
-
-If you require the user to resolve a random event, also include:
-  • "user_input_request": "<exactly what you need me to do>"
-
-Then continue with your move.
-
-Your deck of cards is:
-
-Pokemon - 22
-4 Blitzle VIV 53
-1 Boltund SSH 76
-3 Luxio FST 92
-2 Luxray FST 93
-1 Morpeko FST 109
-1 Pikachu V VIV 43
-4 Shinx FST 91
-2 Yamper SSH 74
-3 Zebstrika VIV 54
-1 Zeraora FST 102
-Trainer - 20
-1 Boss's Orders RCL 154
-2 Bug Catcher FST 226
-1 Energy Recycler BST 124
-4 Great Ball SSH 164
-4 Hop SSH 165
-2 Potion SSH 177
-3 Shauna FST 240
-1 Sonia RCL 167
-2 Switch SSH 183
-Energy - 18
-18 Lightning Energy 155
-
-
-Previously remembered:
-{"current_hand": ["Yamper", "Blitzle", "Morpeko"], "active_pokemon": {"name": "Shinx", "hp": 60, "attached_energy": [], "conditions": []}, "benched_pokemon": [], "action": "Playing Great Ball to search for a Basic Pokemon and put it into my hand"}
-[User input: You don't have great ball in your hand]
-
-[Last decisions: Playing Great Ball to search for a Basic Pokemon and put it into my hand]
-
-[User note: you don't have great ball in your hand]
-
-=== Player1 RESPONSE ===
-{
-  "memory": {
-    "current_hand": [
-      "Yamper",
-      "Blitzle",
-      "Morpeko"
-    ],
-    "active_pokemon": {
-      "name": "Shinx",
-      "hp": 60,
-      "attached_energy": [],
-      "conditions": []
-    },
-    "benched_pokemon": [],
-    "action": "Unable to play Great Ball, need to reconsider my next move"
-  },
-  "decisions": "I will play Hop to draw 3 cards",
-  "end_turn": false
-}
-
-=== Player1 USER_INPUT ===
-[Pending note] you can't use more than 1 supporter per turn
-
-=== Player1 PROMPT ===
-Decide what information is critical to the game state, then output exactly ONE JSON object with these keys:
-  • "memory": "<the updated memory>"
-  • "decisions": "<what you will do now>"
-Always include:
-  • "end_turn": true or false; true if you are ending your turn, false to take another action
-
-Your "memory" field must at minimum summarize:
-  1. Your current hand (whenever you use a card, you should remove it from your hand, as it is 'used').
-  2. Your Active Pokémon and its stats (HP, attached Energies, any Conditions).
-  3. Your Benched Pokémon and their stats.
-  4. The specific action you are taking this turn.
-
-If you require the user to resolve a random event, also include:
-  • "user_input_request": "<exactly what you need me to do>"
-
-Then continue with your move.
-
-Your deck of cards is:
-
-Pokemon - 22
-4 Blitzle VIV 53
-1 Boltund SSH 76
-3 Luxio FST 92
-2 Luxray FST 93
-1 Morpeko FST 109
-1 Pikachu V VIV 43
-4 Shinx FST 91
-2 Yamper SSH 74
-3 Zebstrika VIV 54
-1 Zeraora FST 102
-Trainer - 20
-1 Boss's Orders RCL 154
-2 Bug Catcher FST 226
-1 Energy Recycler BST 124
-4 Great Ball SSH 164
-4 Hop SSH 165
-2 Potion SSH 177
-3 Shauna FST 240
-1 Sonia RCL 167
-2 Switch SSH 183
-Energy - 18
-18 Lightning Energy 155
-
-
-Previously remembered:
-{"current_hand": ["Yamper", "Blitzle", "Morpeko"], "active_pokemon": {"name": "Shinx", "hp": 60, "attached_energy": [], "conditions": []}, "benched_pokemon": [], "action": "Unable to play Great Ball, need to reconsider my next move"}
-
-[Last decisions: I will play Hop to draw 3 cards]
-
-[User note: you can't use more than 1 supporter per turn]
-
-=== Player1 RESPONSE ===
-{
-  "memory": {
-    "current_hand": [
-      "Yamper",
-      "Blitzle",
-      "Morpeko",
-      "Hop"
-    ],
-    "active_pokemon": {
-      "name": "Shinx",
-      "hp": 60,
-      "attached_energy": [],
-      "conditions": []
-    },
-    "benched_pokemon": [],
-    "action": "Playing Hop to draw 3 cards"
-  },
-  "decisions": "I will play Hop to draw 3 cards",
-  "end_turn": true
-}
-
-=== Player1 USER_INPUT ===
-[Pending note] you can't use more than 1 supporter per turn
-
-=== Player1 PROMPT ===
-Decide what information is critical to the game state, then output exactly ONE JSON object with these keys:
-  • "memory": "<the updated memory>"
-  • "decisions": "<what you will do now>"
-Always include:
-  • "end_turn": true or false; true if you are ending your turn, false to take another action
-
-Your "memory" field must at minimum summarize:
-  1. Your current hand (whenever you use a card, you should remove it from your hand, as it is 'used').
-  2. Your Active Pokémon and its stats (HP, attached Energies, any Conditions).
-  3. Your Benched Pokémon and their stats.
-  4. The specific action you are taking this turn.
-
-If you require the user to resolve a random event, also include:
-  • "user_input_request": "<exactly what you need me to do>"
-
-Then continue with your move.
-
-Your deck of cards is:
-
-Pokemon - 22
-4 Blitzle VIV 53
-1 Boltund SSH 76
-3 Luxio FST 92
-2 Luxray FST 93
-1 Morpeko FST 109
-1 Pikachu V VIV 43
-4 Shinx FST 91
-2 Yamper SSH 74
-3 Zebstrika VIV 54
-1 Zeraora FST 102
-Trainer - 20
-1 Boss's Orders RCL 154
-2 Bug Catcher FST 226
-1 Energy Recycler BST 124
-4 Great Ball SSH 164
-4 Hop SSH 165
-2 Potion SSH 177
-3 Shauna FST 240
-1 Sonia RCL 167
-2 Switch SSH 183
-Energy - 18
-18 Lightning Energy 155
-
-
-Previously remembered:
-{"current_hand": ["Yamper", "Blitzle", "Morpeko", "Hop"], "active_pokemon": {"name": "Shinx", "hp": 60, "attached_energy": [], "conditions": []}, "benched_pokemon": [], "action": "Playing Hop to draw 3 cards"}
-
-[Last decisions: I will play Hop to draw 3 cards]
-
-[User note: you can't use more than 1 supporter per turn]
-
-=== Player1 RESPONSE ===
-{
-  "memory": {
-    "current_hand": [
-      "Yamper",
-      "Blitzle",
-      "Morpeko"
-    ],
-    "active_pokemon": {
-      "name": "Shinx",
-      "hp": 60,
-      "attached_energy": [],
-      "conditions": []
-    },
-    "benched_pokemon": [],
-    "action": "I will play Great Ball to search for a basic Pokemon"
-  },
-  "decisions": "I will play Great Ball to search for a basic Pokemon",
-  "end_turn": false
+  "user_input_request": "Please select a Basic Pok\u00e9mon from your hand to place onto your Bench."
 }
 

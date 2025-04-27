@@ -5,9 +5,9 @@ import json
 
 class Player:
     def __init__(self, name: str, deck: str, order: str, initial_setup: str):
-        self.name = name
+        self.name = name                    # "Player1" or "Player2"
         self.deck = deck
-        self.order = order  # "first" or "second"
+        self.order = order                  # "first" or "second"
         self.initial_setup = initial_setup
 
         # how many times to retry JSON parsing before giving up
@@ -17,29 +17,27 @@ class Player:
         self.pending_user_input = ""
         # remember your last decisions to feed back next turn
         self.last_decisions = ""
-        # store info passed from opponent's previous turn
+        # store public_info passed from opponent's previous turn
         self.opponent_public_info = ""
 
         # Initial “master” prompt: simulation context + initial setup + baked-in JSON instructions
         self.system_prompt = (
             "You are simulating a game of the Pokémon Trading Card Game (PTCG) via text. "
-            "You have full knowledge of your deck and the game state, but you play entirely by text.\n\n"
+            f"You are acting as {self.name}, not as a judge—you play like a real player.\n\n"
             f"Initial game setup:\n{initial_setup}\n\n"
-            # always show the deck so you can cross-check your hand
-            f"Your deck of cards is:\n{deck}\n\n"
-            f"You will play {order}.\n"
-            "Follow the official PTCG rules precisely. Whenever a random event occurs "
-            "(like drawing or shuffling), pause and prompt the user for the exact result.\n\n"
+            "# Decklist (for your reference; you must only use cards from your hand):\n"
+            f"{deck}\n\n"
+            f"You will play {order} as {self.name}.\n\n"
             "When you respond, output exactly ONE JSON object with these keys:\n"
-            "  • \"memory\": \"<the updated memory>\"\n"
+            "  • \"memory\": \"<the updated private memory>\"\n"
             "  • \"decisions\": \"<what you will do now>\"\n"
+            "  • \"public_info\": \"<public game state for Player1 and Player2: each player's Active Pokémon & stats, Benched Pokémon & stats, and prize cards remaining>\"\n"
             "  • \"end_turn\": true or false; true if you are ending your turn, false to take another action\n"
             "Optionally include:\n"
-            "  • \"user_input_request\": \"<exactly what you need me to do>\"\n"
-            "  • \"public_info\": \"<what you want to share with your opponent, e.g. damage dealt>\"\n"
-            "  • \"to_memorize\": \"<any extra details you think are important to remember>\"\n\n"
+            "  • \"to_memorize\": \"<any extra details you think are important to remember>\"\n"
+            "  • \"user_input_request\": \"<exactly what you need me to do>\"\n\n"
             "Your \"memory\" field must at minimum summarize:\n"
-            "  1. Your current hand (which cards you hold).\n"
+            "  1. Your current hand (which cards you hold), removing any cards you used.\n"
             "  2. Your Active Pokémon and its stats (HP, attached Energies, any Conditions).\n"
             "  3. Your Benched Pokémon and their stats.\n"
             "  4. The specific action you are taking this turn.\n\n"
@@ -49,16 +47,17 @@ class Player:
 
         # Instruction for all subsequent turns
         self.turn_instruction = (
+            "Continue simulating as " + self.name + ", not a judge.\n\n"
             "Decide what information is critical to the game state, then output exactly ONE JSON object with these keys:\n"
-            "  • \"memory\": \"<the updated memory>\"\n"
+            "  • \"memory\": \"<the updated private memory>\"\n"
             "  • \"decisions\": \"<what you will do now>\"\n"
+            "  • \"public_info\": \"<public game state for Player1 and Player2: each player's Active Pokémon & stats, Benched Pokémon & stats, and prize cards remaining>\"\n"
             "  • \"end_turn\": true or false; true if you are ending your turn, false to take another action\n"
             "Optionally include:\n"
-            "  • \"user_input_request\": \"<exactly what you need me to do>\"\n"
-            "  • \"public_info\": \"<what you want to share with your opponent, e.g. damage dealt>\"\n"
-            "  • \"to_memorize\": \"<any extra details you think are important to remember>\"\n\n"
+            "  • \"to_memorize\": \"<any extra details you think are important to remember>\"\n"
+            "  • \"user_input_request\": \"<exactly what you need me to do>\"\n\n"
             "Your \"memory\" field must at minimum summarize:\n"
-            "  1. Your current hand (whenever you use a card, remove it from your hand).\n"
+            "  1. Your current hand (removing cards you used).\n"
             "  2. Your Active Pokémon and its stats (HP, attached Energies, any Conditions).\n"
             "  3. Your Benched Pokémon and their stats.\n"
             "  4. The specific action you are taking this turn.\n\n"
@@ -71,10 +70,10 @@ class Player:
 
     def build_prompt(self) -> str:
         """
-        First turn uses system_prompt; afterwards turn_instruction + memory.
-        Then we inject deck (again), last_decisions, opponent_public_info, and pending_user_input.
+        First turn uses self.system_prompt; afterwards self.turn_instruction + memory.
+        Then we inject last_decisions, opponent_public_info, and pending_user_input.
         """
-        deck_block = f"Your deck of cards is:\n{self.deck}\n\n"
+        deck_block = f"# Decklist (for reference):\n{self.deck}\n\n"
 
         if not self.memory:
             prompt = self.system_prompt
@@ -92,8 +91,7 @@ class Player:
 
         # Include any public info from your opponent
         if self.opponent_public_info:
-            prompt += f"\n\n[Info from opponent: {self.opponent_public_info}]"
-            # clear so it shows only once
+            prompt += f"\n\n[Public info: {self.opponent_public_info}]"
             self.opponent_public_info = ""
 
         # Inject any pending user note directly into the prompt
@@ -127,7 +125,8 @@ class Player:
                 if (
                     "memory" not in data or
                     "decisions" not in data or
-                    "end_turn" not in data
+                    "end_turn" not in data or
+                    "public_info" not in data
                 ):
                     raise KeyError("Missing required keys")
                 return data
@@ -139,8 +138,8 @@ class Player:
                     current_prompt += (
                         "\n\n⚠️ Your previous response was invalid. "
                         "Please reply with exactly one JSON object containing keys "
-                        "\"memory\", \"decisions\", and \"end_turn\", "
-                        "and optionally \"user_input_request\", \"public_info\", and \"to_memorize\"."
+                        "\"memory\", \"decisions\", \"end_turn\", and \"public_info\", "
+                        "and optionally \"to_memorize\", \"user_input_request\"."
                     )
                     continue
 
