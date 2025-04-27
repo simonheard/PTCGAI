@@ -46,8 +46,12 @@ def main():
         # 3) Log the raw JSON
         logger.log(current.name, "RESPONSE", json.dumps(data, indent=2))
 
-        # 4) Update memory with the AI’s “memory” (replace entirely)
-        current.memory = data["memory"]
+        # 4) Coerce memory into a plain string, then replace it wholesale
+        raw_mem = data["memory"]
+        if not isinstance(raw_mem, str):
+            raw_mem = json.dumps(raw_mem)
+        current.memory = raw_mem
+
         # 4.1) Remember what you just decided, explicitly
         current.last_decisions = data["decisions"]
 

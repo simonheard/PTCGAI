@@ -64,32 +64,28 @@ class Player:
 
     def build_prompt(self) -> str:
         """
-        First turn uses system_prompt; afterwards turn_instruction + deck + memory.
-        Then, if you stored last_decisions or pending_user_input, append them (and clear).
+        First turn uses self.system_prompt; afterwards self.turn_instruction + deck + memory.
+        Then, if you stored last_decisions or pending_user_input, append them.
         """
-        # always remind it of the authoritative deck
         deck_block = f"Your deck of cards is:\n{self.deck}\n\n"
 
         if not self.memory:
             prompt = self.system_prompt
         else:
+            # use an f-string so even non-str memory is coerced safely
             prompt = (
-                self.turn_instruction
-                + "\n\n"
-                + deck_block
-                + "Previously remembered:\n"
-                + self.memory
+                f"{self.turn_instruction}\n\n"
+                f"{deck_block}"
+                f"Previously remembered:\n{self.memory}"
             )
 
         # Remind yourself what you did last turn
         if self.last_decisions:
             prompt += f"\n\n[Last decisions: {self.last_decisions}]"
-            # keep it only once—you could clear here if desired
 
         # Inject any pending user note directly into the prompt
         if self.pending_user_input:
             prompt += f"\n\n[User note: {self.pending_user_input}]"
-            # clear it so it only applies once
             self.pending_user_input = ""
 
         return prompt
@@ -134,7 +130,6 @@ class Player:
                     )
                     continue
 
-                # give up after too many tries
                 raise ValueError(
                     f"{self.name} failed to return valid JSON after "
                     f"{self.max_retries} attempts. Last error: {last_error}"
