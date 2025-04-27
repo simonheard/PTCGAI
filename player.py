@@ -15,6 +15,8 @@ class Player:
 
         # stash any free-form CLI note here until next build_prompt()
         self.pending_user_input = ""
+        # remember your last decisions to feed back next turn
+        self.last_decisions = ""
 
         # Initial “master” prompt: simulation context + initial setup + baked-in JSON instructions
         self.system_prompt = (
@@ -26,40 +28,63 @@ class Player:
             "Follow the official PTCG rules precisely. Whenever a random event occurs "
             "(like drawing or shuffling), pause and prompt the user for the exact result.\n\n"
             "When you respond, output exactly ONE JSON object with these keys:\n"
-            "  • \"remember\": \"<what you should remember>\"\n"
+            "  • \"memory\": \"<the updated memory>\"\n"
             "  • \"decisions\": \"<what you will do now>\"\n"
-            "If you require the user to resolve a random event, also include:\n"
-            "  • \"user_input_request\": \"<exactly what you need me to do>\"\n"
             "Always include:\n"
             "  • \"end_turn\": true or false; true if you are ending your turn, false to take another action\n\n"
-            "Now begin your move."
+            "Your \"memory\" field must at minimum summarize:\n"
+            "  1. Your current hand (which cards you hold).\n"
+            "  2. Your Active Pokémon and its stats (HP, attached Energies, any Conditions).\n"
+            "  3. Your Benched Pokémon and their stats.\n"
+            "  4. The specific action you are taking this turn.\n\n"
+            "If you require the user to resolve a random event, also include:\n"
+            "  • \"user_input_request\": \"<exactly what you need me to do>\"\n\n"
+            "Now begin your move by selecting your Active Pokémon."
         )
 
         # Instruction for all subsequent turns
         self.turn_instruction = (
-            "Decide what information is critical to the game state. When you respond, output exactly "
-            "ONE JSON object with these keys:\n"
-            "  • \"remember\": \"<what you should remember>\"\n"
+            "Decide what information is critical to the game state, then output exactly ONE JSON object with these keys:\n"
+            "  • \"memory\": \"<the updated memory>\"\n"
             "  • \"decisions\": \"<what you will do now>\"\n"
-            "If you require the user to resolve a random event, also include:\n"
-            "  • \"user_input_request\": \"<exactly what you need me to do>\"\n"
             "Always include:\n"
             "  • \"end_turn\": true or false; true if you are ending your turn, false to take another action\n\n"
+            "Your \"memory\" field must at minimum summarize:\n"
+            "  1. Your current hand (whenever you use a card, you should remove it from your hand, as it is 'used').\n"
+            "  2. Your Active Pokémon and its stats (HP, attached Energies, any Conditions).\n"
+            "  3. Your Benched Pokémon and their stats.\n"
+            "  4. The specific action you are taking this turn.\n\n"
+            "If you require the user to resolve a random event, also include:\n"
+            "  • \"user_input_request\": \"<exactly what you need me to do>\"\n\n"
             "Then continue with your move."
         )
 
-        # Accumulated “remember” text
+        # Accumulated “memory” text
         self.memory = ""
 
     def build_prompt(self) -> str:
         """
-        First turn uses system_prompt; afterwards turn_instruction + memory.
-        Then, if the user left a free-form note, append it here (and clear it).
+        First turn uses system_prompt; afterwards turn_instruction + deck + memory.
+        Then, if you stored last_decisions or pending_user_input, append them (and clear).
         """
+        # always remind it of the authoritative deck
+        deck_block = f"Your deck of cards is:\n{self.deck}\n\n"
+
         if not self.memory:
             prompt = self.system_prompt
         else:
-            prompt = f"{self.turn_instruction}\n\nPreviously remembered:\n{self.memory}"
+            prompt = (
+                self.turn_instruction
+                + "\n\n"
+                + deck_block
+                + "Previously remembered:\n"
+                + self.memory
+            )
+
+        # Remind yourself what you did last turn
+        if self.last_decisions:
+            prompt += f"\n\n[Last decisions: {self.last_decisions}]"
+            # keep it only once—you could clear here if desired
 
         # Inject any pending user note directly into the prompt
         if self.pending_user_input:
@@ -90,7 +115,7 @@ class Player:
             try:
                 data = json.loads(content)
                 if (
-                    "remember" not in data or
+                    "memory" not in data or
                     "decisions" not in data or
                     "end_turn" not in data
                 ):
@@ -104,7 +129,7 @@ class Player:
                     current_prompt += (
                         "\n\n⚠️ Your previous response was invalid. "
                         "Please reply with exactly one JSON object containing keys "
-                        "\"remember\", \"decisions\", and \"end_turn\", "
+                        "\"memory\", \"decisions\", and \"end_turn\", "
                         "and optionally \"user_input_request\"."
                     )
                     continue

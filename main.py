@@ -32,7 +32,7 @@ def main():
         current = players[turn % 2]
         print(f"\n--- {current.name}'s turn ({current.order}) ---")
 
-        # 1) Build & log the prompt (this now includes any pending_user_input)
+        # 1) Build & log the prompt (this now includes deck, memory, last decisions, and any pending_user_input)
         prompt = current.build_prompt()
         logger.log(current.name, "PROMPT", prompt)
 
@@ -46,11 +46,10 @@ def main():
         # 3) Log the raw JSON
         logger.log(current.name, "RESPONSE", json.dumps(data, indent=2))
 
-        # 4) Update memory with the AI’s “remember”
-        if not current.memory:
-            current.memory = data["remember"]
-        else:
-            current.memory += "\n" + data["remember"]
+        # 4) Update memory with the AI’s “memory” (replace entirely)
+        current.memory = data["memory"]
+        # 4.1) Remember what you just decided, explicitly
+        current.last_decisions = data["decisions"]
 
         # 5) Show decisions
         print(f"Decisions:\n{data['decisions']}")
