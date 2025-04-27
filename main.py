@@ -25,21 +25,27 @@ def main():
         players.append(Player(name, deck, order, initial_setup))
 
     turn = 0
+    last_player_index = None
+
     print("=== PTCG AI Simulation ===")
     print("Type 'end' at any prompt to stop the game.\n")
 
     while True:
-        current = players[turn % 2]
+        current_index = turn % 2
+        current = players[current_index]
         opponent = players[(turn + 1) % 2]
 
-        # --- Draw Phase ---
         print(f"\n--- {current.name}'s turn ({current.order}) ---")
-        draw_input = input("Draw a card (enter card name)> ").strip()
-        if draw_input.lower() == "end":
-            print("Game ended by user.")
-            break
-        logger.log(current.name, "USER_INPUT", f"Drew card: {draw_input}")
-        current.pending_draw = draw_input
+
+        # Draw Phase only when the player actually changes
+        if current_index != last_player_index:
+            draw_input = input("Draw a card (enter card name)> ").strip()
+            if draw_input.lower() == "end":
+                print("Game ended by user.")
+                break
+            logger.log(current.name, "USER_INPUT", f"Drew card: {draw_input}")
+            current.pending_draw = draw_input
+            last_player_index = current_index
 
         # 1) Build & log the prompt (includes deck, memory, last decisions,
         #    any pending_draw, pending_user_input, and opponent_public_info)
@@ -108,7 +114,6 @@ def main():
             if confirm == "yes":
                 turn += 1
             else:
-                # user wants AI to adjust
                 correction = "Please continue your turn; I think you ended prematurely."
                 logger.log(current.name, "USER_INPUT", f"[Correction] {correction}")
                 current.pending_user_input = correction
